@@ -1,7 +1,11 @@
 package ma.fstt.propertyservice.service.storageService;
 
+import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import ma.fstt.propertyservice.model.Property;
 import ma.fstt.propertyservice.model.PropertyImage;
+import ma.fstt.propertyservice.service.interfaces.IStorageService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -11,62 +15,88 @@ import java.util.Objects;
 import java.util.Set;
 
 @Service
-public class ProperyFileService extends StorageService {
+@RequiredArgsConstructor
+public class ProperyFileService {
 
-    /**
-     * Use a static final constant for the folder path
-     */
-    private static final String UPLOAD_FOLDER = "/uploads/properties/";
+    private final IStorageService storageService;
 
-    /**
-    * Stores property images
-    * @return a Set of PropertyImage
-    */
-    public Set<PropertyImage> storePropertyImages(List<MultipartFile> files, Property property, String coverImageName) {
+    @Value("${storage.local.directory:uploads}")
+    private String folder;
+
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of("jpg", "jpeg", "png", "webp");
+    private static final Set<String> ALLOWED_MIME_TYPES = Set.of(
+            "image/jpeg", "image/jpg", "image/png", "image/webp"
+    );
+
+    public Set<PropertyImage> storePropertyImages(List<MultipartFile> files,
+                                                  Property property,
+                                                  String coverImageName) {
+
         if (files == null || files.isEmpty()) {
             return new HashSet<>();
         }
 
         Set<PropertyImage> images = new HashSet<>();
-        Set<String> uploadedUrls = new HashSet<>();
+        Set<String> uploadedPaths = new HashSet<>();
 
         try {
             for (int i = 0; i < files.size(); i++) {
                 MultipartFile file = files.get(i);
 
-                if (file == null || file.isEmpty()) {
-                    continue;
-                }
+                if (file == null || file.isEmpty()) continue;
 
                 String extension = StringUtils.getFilenameExtension(
                         Objects.requireNonNullElse(file.getOriginalFilename(), "")
                 );
+                if (extension == null) {
+                    throw new IllegalArgumentException("File must have an extension");
+                }
+
+                extension = extension.toLowerCase();
+                if (!ALLOWED_EXTENSIONS.contains(extension)) {
+                    throw new IllegalArgumentException("Allowed formats: JPG, JPEG, PNG, WEBP");
+                }
+
+                String mimeType = file.getContentType();
+                if (mimeType == null || !ALLOWED_MIME_TYPES.contains(mimeType.toLowerCase())) {
+                    throw new IllegalArgumentException("Invalid MIME type: " + mimeType);
+                }
 
                 String fileName = property.getId() + "_" + i + "." + extension;
-                String fullPath = UPLOAD_FOLDER + fileName;
+                String fullPath = folder + fileName;
 
-                String url = storeFile(file, fullPath);
-
-                uploadedUrls.add(url);
+                String url = storageService.storeFile(file, fullPath);
+                uploadedPaths.add(url);
 
                 PropertyImage propertyImage = new PropertyImage();
                 propertyImage.setUrl(url);
                 propertyImage.setProperty(property);
-                propertyImage.setCover(coverImageName.equals(file.getOriginalFilename()));
+
+                boolean isCover =
+                        (coverImageName == null && i == 0)
+                                ||
+                                (coverImageName != null
+                                        && coverImageName.equals(file.getOriginalFilename()));
+
+                propertyImage.setCover(isCover);
+
                 images.add(propertyImage);
             }
-        } catch (Exception e) {
-
-            for (String url : uploadedUrls) {
+        }
+        catch (Exception e) {
+            for (String fullPath : uploadedPaths) {
                 try {
-                    deleteFile(url);
-                } catch (Exception deleteException) {
-                    System.err.println("Failed to delete file during rollback: " + url + " " + deleteException.getMessage());
+                    storageService.deleteFile(fullPath);
+                } catch (Exception deleteError) {
                 }
             }
-            throw new RuntimeException("Failed to upload images. Rolling back.", e);
+            throw new RuntimeException("Failed to upload images. Rollback executed.", e);
         }
 
         return images;
+    }
+
+    public void deletePropertyImage(PropertyImage propertyImage) {
+        storageService.deleteFile(propertyImage.getUrl());
     }
 }

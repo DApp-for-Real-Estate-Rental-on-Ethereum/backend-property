@@ -1,58 +1,84 @@
 package ma.fstt.propertyservice.service.storageService;
 
+import lombok.RequiredArgsConstructor;
 import ma.fstt.propertyservice.model.Amenity;
-import ma.fstt.propertyservice.model.AmenityCategory;
+import ma.fstt.propertyservice.service.interfaces.IStorageService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 import java.util.Objects;
 
 @Service
-public class AmenityStorageService extends StorageService {
+@RequiredArgsConstructor
+public class AmenityStorageService {
 
-    // Define the paths as constants
-    private static final String AMENITY_PATH = "/uploads/amenities/";
+    private final IStorageService storageService;
 
-    /**
-     * Stores an amenity icon.
-     * @return The full path to the stored file, or null if no file was provided.
-     */
-    public String storeAmenity(MultipartFile amenityIcon, Amenity amenity) {
-        // 1. Handle optional/null file
-        if (amenityIcon == null || amenityIcon.isEmpty()) {
-            return null;
+    @Value("${aws.amenities.folder}")
+    private String folder;
+
+    public String storeAmenityImage(MultipartFile amenityIcon, Amenity amenity) {
+
+        String extension = StringUtils.getFilenameExtension(
+                Objects.requireNonNullElse(amenityIcon.getOriginalFilename(), "")
+        );
+
+        if (extension == null) {
+            throw new IllegalArgumentException("File must have an extension");
         }
 
-        // 2. Generate a safe filename
+        extension = extension.toLowerCase();
+
+        if (!List.of("jpeg", "jpg", "png", "svg").contains(extension)) {
+            throw new IllegalArgumentException("Allowed: JPG, JPEG, PNG, SVG");
+        }
+
+        String contentType = amenityIcon.getContentType();
+        if (contentType == null) {
+            throw new IllegalArgumentException("Invalid MIME type");
+        }
+
+        if (!(contentType.equals("image/jpeg") ||
+                contentType.equals("image/jpg") ||
+                contentType.equals("image/png") ||
+                contentType.equals("image/svg+xml"))) {
+            throw new IllegalArgumentException("Invalid MIME type for image");
+        }
+
         String fileName = generateSafeFileName(
                 amenityIcon,
                 amenity.getId().toString(),
                 amenity.getName()
         );
 
-        // 3. Build the full path
-        String fullPath = AMENITY_PATH + fileName;
-
-        return super.storeFile(amenityIcon, fullPath);
+        String fullPath = folder + fileName;
+        return storageService.storeFile(amenityIcon, fullPath);
     }
 
-    /**
-     * Generates a safe, URL-friendly filename.
-     * Example: (file: "pool icon.svg", id: "1", name: "Pool Area!")
-     * Becomes: "1_pool-area.svg"
-     */
+    public void deleteAmenity(Amenity amenity) {
+        storageService.deleteFile(amenity.getIcon());
+    }
+
+    public String updateAmenityImage(MultipartFile amenityIcon, Amenity amenity) {
+        if (amenity.getIcon() != null && !amenity.getIcon().isEmpty()) {
+            storageService.deleteFile(amenity.getIcon());
+        }
+
+        String newIconPath = storeAmenityImage(amenityIcon, amenity);
+
+        return newIconPath;
+    }
+
     private String generateSafeFileName(MultipartFile file, String id, String name) {
-        // Get the file extension (e.g., "png", "svg")
         String extension = StringUtils.getFilenameExtension(
                 Objects.requireNonNullElse(file.getOriginalFilename(), "")
         );
-
-        // Sanitize the name (slugify)
-        // "Pool Area!" -> "pool-area"
         String safeName = name.toLowerCase()
-                .replaceAll("[^a-z0-9\\s-]", "") // Remove special chars
-                .replaceAll("[\\s_]+", "-");      // Replace spaces/underscores with a dash
-
+                .replaceAll("[^a-z0-9\\s-]", "")
+                .replaceAll("[\\s_]+", "-");
         return id + "_" + safeName + "." + extension;
     }
 }

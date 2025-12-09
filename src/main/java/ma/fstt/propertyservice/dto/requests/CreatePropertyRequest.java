@@ -5,8 +5,10 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
-import ma.fstt.propertyservice.enums.PropertyTypeEnum;
+import ma.fstt.propertyservice.model.Address;
 import ma.fstt.propertyservice.model.Amenity;
+import ma.fstt.propertyservice.model.DiscountPlan;
+import ma.fstt.propertyservice.model.Property;
 
 import java.util.Set;
 
@@ -21,10 +23,19 @@ public class CreatePropertyRequest {
     private String description;
 
     @NotNull(message = "Property type is required and cannot be null.")
-    private PropertyTypeEnum type;
+    private Long typeId;
 
-    @NotNull(message = "Price is required.")
-    private Double price;
+    @NotNull(message = "Daily price is required.")
+    private Double dailyPrice;
+
+    @NotNull(message = "Deposit amount is required.")
+    @Min(value = 0, message = "Deposit amount must be non-negative.")
+    private Double depositAmount;
+
+    @NotNull(message = "negotiation percentage is required.")
+    private Double negotiationPercentage;
+
+    private DiscountPlanDTO discountPlan;
 
     @NotNull(message = "Number of guests is required.")
     @Min(value = 1, message = "Capacity must be at least 1 guest.")
@@ -44,28 +55,44 @@ public class CreatePropertyRequest {
     @NotNull
     private Set<Amenity> amenities;
 
-    @NotNull(message = "The 'draft' status must be set (true or false).")
-    private Boolean draft;
-
     @NotNull(message = "Address is required")
-    @NotBlank
-    private String address;
+    private Address address;
 
-    @NotNull(message = "Longitude is required")
-    private Double longitude;
-
-    @NotNull(message = "Latitude is required")
-    private Double latitude;
-
-    @NotNull(message = "Country is required")
-    private String country;
-
-    @NotNull(message = "City is required")
-    private String city;
-
-    @NotNull(message = "Postal code is required")
-    private Integer postalCode;
-
-    @NotNull
     private String coverImageName;
+
+    public Property createProperty() {
+        DiscountPlan plan = null;
+        if (discountPlan != null) {
+            plan = DiscountPlan.builder()
+                    .fiveDays(discountPlan.getFiveDays())
+                    .fifteenDays(discountPlan.getFifteenDays())
+                    .oneMonth(discountPlan.getOneMonth())
+                    .build();
+        }
+        
+        Property property = Property.builder()
+                .title(title)
+                .description(description)
+                .dailyPrice(dailyPrice)
+                .depositAmount(depositAmount)
+                .discountPlan(plan)
+                .capacity(capacity)
+                .numberOfBedrooms(numberOfBedrooms)
+                .numberOfBeds(numberOfBeds)
+                .numberOfBathrooms(numberOfBathrooms)
+                .address(address)
+                .build();
+        
+        property.setNegotiationPercentage(negotiationPercentage);
+        
+        return property;
+    }
+
+    @Getter
+    @Setter
+    public static class DiscountPlanDTO {
+        private Integer fiveDays;
+        private Integer fifteenDays;
+        private Integer oneMonth;
+    }
 }

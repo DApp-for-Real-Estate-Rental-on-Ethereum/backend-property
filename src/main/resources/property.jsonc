@@ -1,0 +1,161 @@
+[
+  // Full property object
+  {
+    "id": 1,
+    "userId": "ojwwe-fejwf-fewfe",
+    "title": "Apartment in Ciempozuelos",
+    "description": "Apartment in first floor without elevator with 1 room.\n\nMadrid 30 minute drive\nToledo 40 minutes by car\nWarner Park 15 min drive\n\nBus stop to Parque Warner 1 minute walk (working day only)\nBus stop to Madrid \"Legazpi\" 1 minute walk\n\nPet-friendly\nNo smoking\nThe space\nBedroom with a 150cm double bed.\n\nLiving room with a bunk bed 150cm bottom 135cm top\n\nIt has a washing machine, iron, internet access (600 megabyte Wi-Fi), heating, air conditioning (only in the living room), and a TV.\n\nThe kitchen is equipped with an induction ceramic hob, refrigerator, microwave, dishes, cutlery,\n\nThe shower with shower gel, shampoo, hand soap, hair dryer, face and body towel",
+    "type": "APARTMENT",
+    "numberOfBedrooms": 2,
+    "numberOfBeds": 2,
+    "numberOfBathrooms": 2,
+    "capacity": 3,
+    "price": 23,
+    "isDraft": true,
+    "isDeleted": false,
+    "images": [
+      {
+        "id": 2,
+        "url": "aws.com/89378e3",
+        "isCover": true
+      },
+      {
+        "id": 3,
+        "url": "aws.com/298759r3r30",
+        "isCover": false
+      }
+    ],
+    "amenitiesCategories": [
+      {
+        "id": 1,
+        "name": "Internet",
+        "icon": "aws.com/9374828",
+        "amenities": [
+          {
+            "id": 1,
+            "name": "Wifi"
+          },
+          {
+            "id": 2,
+            "name": "TV"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "name": "Kitchen",
+        "icon": "aws.com/9374828",
+        "amenities": [
+          {
+            "id": 3,
+            "name": "Microwave"
+          },
+          {
+            "id": 4,
+            "name": "Refrigerator"
+          }
+        ]
+      }
+    ],
+    "availabilities": [
+      {}
+    ]
+  },
+  // Create Property Object
+  {
+    "userId": "ojwwe-fejwf-fewfe",
+    "title": "Apartment in Ciempozuelos",
+    "description": "Apartment in first floor without elevator with 1 room.\n\nMadrid 30 minute drive\nToledo 40 minutes by car\nWarner Park 15 min drive\n\nBus stop to Parque Warner 1 minute walk (working day only)\nBus stop to Madrid \"Legazpi\" 1 minute walk\n\nPet-friendly\nNo smoking\nThe space\nBedroom with a 150cm double bed.\n\nLiving room with a bunk bed 150cm bottom 135cm top\n\nIt has a washing machine, iron, internet access (600 megabyte Wi-Fi), heating, air conditioning (only in the living room), and a TV.\n\nThe kitchen is equipped with an induction ceramic hob, refrigerator, microwave, dishes, cutlery,\n\nThe shower with shower gel, shampoo, hand soap, hair dryer, face and body towel",
+    "type": "APARTMENT",
+    "numberOfBedrooms": 2,
+    "numberOfBeds": 2,
+    "numberOfBathrooms": 2,
+    "capacity": 3,
+    "price": 23,
+    "isDraft": true,
+    "images": [
+      {}
+    ],
+    "amenities": [
+      {
+        "id": 1,
+        "name": "Wifi"
+      },
+      {
+        "id": 2,
+        "name": "TV"
+      },
+      {
+        "id": 3,
+        "name": "Microwave"
+      },
+      {
+        "id": 4,
+        "name": "Refrigerator"
+      }
+    ]
+  },
+  // Creating an amenity with a new category
+  {
+    "amenityName" : "kitchen",
+    "categoryId" : null,
+    "amenityCategoryTitle" : "oihfoei"
+  },
+  // Get property {id}
+  {
+    "id" : 1,
+    "userId": "ojwwe-fejwf-fewfe",
+    "title": "Apartment in Ciempozuelos",
+    "description": "Apartment in first floor without elevator with 1 room.\n\nMadrid 30 minute drive\nToledo 40 minutes by car\nWarner Park 15 min drive\n\nBus stop to Parque Warner 1 minute walk (working day only)\nBus stop to Madrid \"Legazpi\" 1 minute walk\n\nPet-friendly\nNo smoking\nThe space\nBedroom with a 150cm double bed.\n\nLiving room with a bunk bed 150cm bottom 135cm top\n\nIt has a washing machine, iron, internet access (600 megabyte Wi-Fi), heating, air conditioning (only in the living room), and a TV.\n\nThe kitchen is equipped with an induction ceramic hob, refrigerator, microwave, dishes, cutlery,\n\nThe shower with shower gel, shampoo, hand soap, hair dryer, face and body towel",
+    "type": "APARTMENT",
+    "numberOfBedrooms": 2,
+    "numberOfBeds": 2,
+    "numberOfBathrooms": 2,
+    "capacity": 3,
+    "price": 23,
+    "images": [
+      {
+        "id": 2,
+        "url": "aws.com/89378e3",
+        "isCover": true
+      },
+      {
+        "id": 3,
+        "url": "aws.com/298759r3r30",
+        "isCover": false
+      }
+    ],
+    "amenitiesCategories": [
+      {
+        "id": 1,
+        "name": "Internet",
+        "icon": "aws.com/9374828",
+        "amenities": [
+          {
+            "id": 1,
+            "name": "Wifi"
+          },
+          {
+            "id": 2,
+            "name": "TV"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "name": "Kitchen",
+        "icon": "aws.com/9374828",
+        "amenities": [
+          {
+            "id": 3,
+            "name": "Microwave"
+          },
+          {
+            "id": 4,
+            "name": "Refrigerator"
+          }
+        ]
+      }
+    ]
+  }
+]

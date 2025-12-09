@@ -1,5 +1,6 @@
 package ma.fstt.propertyservice.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -25,5 +26,6 @@ public class PropertyImage implements Serializable {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "propety_id")
+    @JsonIgnore
     private Property property;
 }

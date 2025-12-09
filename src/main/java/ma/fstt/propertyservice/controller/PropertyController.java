@@ -1,10 +1,10 @@
 package ma.fstt.propertyservice.controller;
 
 import jakarta.validation.Valid;
-import ma.fstt.propertyservice.dto.requests.CreatePropertyRequest;
-import ma.fstt.propertyservice.dto.requests.UpdatePropertyRequest;
+import lombok.RequiredArgsConstructor;
+import ma.fstt.propertyservice.dto.requests.*;
 import ma.fstt.propertyservice.service.PropertyService;
-import ma.fstt.propertyservice.service.UserService;
+import ma.fstt.propertyservice.service.UserProfileService;
 import ma.fstt.propertyservice.util.ParseUtil;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -12,48 +12,244 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import ma.fstt.propertyservice.model.Property;
+
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @RestController
 @RequestMapping("/api/v1/properties")
+@RequiredArgsConstructor
 public class PropertyController {
     private final PropertyService propertyService;
-    private final UserService userService;
+    private final UserProfileService userProfileService;
 
-    public PropertyController(PropertyService propertyService, UserService userService) {
-        this.propertyService = propertyService;
-        this.userService = userService;
+    private boolean isAdmin(Set<String> roles) {
+        return roles.contains("ADMIN");
+    }
+
+    private boolean isHost(Set<String> roles) {
+        return roles.contains("HOST");
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<?> createProperty(
-            @RequestPart @Valid CreatePropertyRequest input,
+    public ResponseEntity<Map<String, Object>> createProperty(
+            @RequestPart("input") @Valid CreatePropertyRequest input,
             @RequestPart("images") List<MultipartFile> images,
             @RequestHeader("X-User-Id") String userId,
             @RequestHeader("X-User-Roles") String userRolesString
     ) {
         Set<String> roles = ParseUtil.StringToSet(userRolesString);
-
-        if ((!roles.contains("TENANT")
-                || !roles.contains("ADMIN")
-                || !roles.contains("HOST"))
-                && !userService.userExists(userId)
-        ) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        if (!isHost(roles) && !isAdmin(roles)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "HOST role is required to create a property."));
         }
+        boolean userExists = userProfileService.userExists(userId);
+        
+        if (!userExists) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "User profile not verified. Please complete your profile and connect your wallet first."));
+        }
+        
+        String propertyId = propertyService.createProperty(input, userId, images);
 
-        propertyService.createProperty(input, userId, images);
-
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("propertyId", propertyId));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateProperty(
+    public ResponseEntity<String> updateProperty(
             @PathVariable String id,
-            @RequestBody UpdatePropertyRequest input
+            @RequestBody UpdatePropertyRequest input,
+            @RequestHeader("X-User-Id") String userId,
+            @RequestHeader("X-User-Roles") String userRolesString
     )
     {
+        Set<String> roles = ParseUtil.StringToSet(userRolesString);
+        if (!isHost(roles) && !isAdmin(roles)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        
+        try {
+            propertyService.updateProperty(id, input, userId);
+        return ResponseEntity.status(HttpStatus.CREATED).body("Property updated");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteProperty(
+            @PathVariable String id,
+            @RequestHeader("X-User-Id") String userId,
+            @RequestHeader("X-User-Roles") String userRolesString
+    ){
+        Set<String> roles = ParseUtil.StringToSet(userRolesString);
+        if (!roles.contains("HOST") && !userProfileService.userExists(userId)
+        ) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        propertyService.deleteProperty(id, userId);
         return ResponseEntity.status(HttpStatus.OK).build();
+    }
+
+    @PatchMapping("/{id}/approve")
+    public ResponseEntity<?> approveProperty(
+            @PathVariable String id,
+            @RequestBody ApprovePropertyRequest input,
+            @RequestHeader("X-User-Id") String userId,
+            @RequestHeader("X-User-Roles") String userRolesString
+    ){
+        Set<String> roles = ParseUtil.StringToSet(userRolesString);
+        if (!isAdmin(roles)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        propertyService.approveProperty(id,input);
+        return ResponseEntity.status(HttpStatus.OK).build();
+    }
+
+    @PatchMapping("/{id}/hide")
+    public ResponseEntity<?> hideProperty(
+            @PathVariable String id,
+            @RequestBody HidePropertyRequest input,
+            @RequestHeader("X-User-Id") String userId,
+            @RequestHeader("X-User-Roles") String userRolesString
+    ){
+        Set<String> roles = ParseUtil.StringToSet(userRolesString);
+        if (!isHost(roles) && !isAdmin(roles)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        propertyService.hideProperty(id,userId, input);
+        return ResponseEntity.status(HttpStatus.OK).build();
+    }
+
+    @PatchMapping("/{id}/suspend")
+    public ResponseEntity<?> suspendProperty(
+            @PathVariable String id,
+            @RequestBody SuspensionPropertyRequest input,
+            @RequestHeader("X-User-Id") String userId,
+            @RequestHeader("X-User-Roles") String userRolesString
+    ){
+        Set<String> roles = ParseUtil.StringToSet(userRolesString);
+        if (!isAdmin(roles)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        propertyService.suspendProperty(id, input);
+        return ResponseEntity.status(HttpStatus.OK).build();
+    }
+
+    @PatchMapping("/{id}/revoke-suspension")
+    public ResponseEntity<?> revokeSuspension(
+            @PathVariable String id,
+            @RequestHeader("X-User-Id") String userId,
+            @RequestHeader("X-User-Roles") String userRolesString
+    ){
+        Set<String> roles = ParseUtil.StringToSet(userRolesString);
+        if (!isAdmin(roles)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        propertyService.revokeSuspension(id);
+        return ResponseEntity.status(HttpStatus.OK).build();
+    }
+
+    @PatchMapping("/{id}/submit-for-approval")
+    public ResponseEntity<?> submitForApproval(
+            @PathVariable String id,
+            @RequestHeader("X-User-Id") String userId,
+            @RequestHeader("X-User-Roles") String userRolesString
+    ){
+        Set<String> roles = ParseUtil.StringToSet(userRolesString);
+        if (!isHost(roles) && !isAdmin(roles)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        propertyService.submitForApproval(id, userId);
+        return ResponseEntity.status(HttpStatus.OK).build();
+    }
+
+    @PatchMapping("/{id}/cancel-approval-request")
+    public ResponseEntity<?> cancelApprovalRequest(
+            @PathVariable String id,
+            @RequestHeader("X-User-Id") String userId,
+            @RequestHeader("X-User-Roles") String userRolesString
+    ){
+        Set<String> roles = ParseUtil.StringToSet(userRolesString);
+        if (!isHost(roles) && !isAdmin(roles)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        propertyService.cancelApprovalRequest(id, userId);
+        return ResponseEntity.status(HttpStatus.OK).build();
+    }
+
+
+    @GetMapping
+    public ResponseEntity<List<Property>> getAllProperties(
+            @RequestHeader(value = "X-User-Roles", required = false) String userRolesString
+    ) {
+        if (userRolesString != null) {
+            Set<String> roles = ParseUtil.StringToSet(userRolesString);
+            if (roles.contains("ADMIN")) {
+                List<Property> properties = propertyService.getAllProperties();
+                return ResponseEntity.ok(properties);
+            }
+        }
+        List<Property> properties = propertyService.getAllApprovedProperties();
+        return ResponseEntity.ok(properties);
+    }
+
+    @GetMapping("/admin/all")
+    public ResponseEntity<List<Property>> getAllPropertiesForAdmin(
+            @RequestHeader("X-User-Id") String userId,
+            @RequestHeader("X-User-Roles") String userRolesString
+    ) {
+        try {
+            Set<String> roles = ParseUtil.StringToSet(userRolesString);
+            
+            if (!roles.contains("ADMIN")) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Collections.emptyList());
+            }
+            
+            List<Property> properties = propertyService.getAllProperties();
+            return ResponseEntity.ok(properties);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.emptyList());
+        }
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getPropertyById(@PathVariable String id) {
+        try {
+            Property property = propertyService.getPropertyById(id);
+            return ResponseEntity.ok(property);
+        } catch (RuntimeException e) {
+            if (e.getMessage() != null && e.getMessage().contains("not found")) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to fetch property: " + e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "An unexpected error occurred: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/{id}/booking-info")
+    public ResponseEntity<ma.fstt.propertyservice.dto.responses.PropertyBookingInfoDTO> getPropertyBookingInfo(@PathVariable String id) {
+        ma.fstt.propertyservice.dto.responses.PropertyBookingInfoDTO info = propertyService.getPropertyBookingInfo(id);
+        return ResponseEntity.ok(info);
+    }
+
+    @GetMapping("/my-properties")
+    public ResponseEntity<List<Property>> getMyProperties(
+            @RequestHeader("X-User-Id") String userId
+    ) {
+        try {
+            List<Property> properties = propertyService.getPropertiesByUserId(userId);
+            return ResponseEntity.ok(properties);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.emptyList());
+        }
     }
 }
