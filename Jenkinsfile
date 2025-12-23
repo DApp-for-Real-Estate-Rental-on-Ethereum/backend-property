@@ -40,6 +40,7 @@ pipeline {
                 script {
                     sh '''
                         echo "Building Spring Boot property-service (skip tests to avoid external DB dependency)..."
+                        chmod +x ./mvnw
                         ./mvnw -B clean package -DskipTests
                     '''
                 }
@@ -127,6 +128,8 @@ pipeline {
                     docker rmi localhost:5000/real-estate-property-service:${BUILD_NUMBER} || true
                 """
             }
+            // Clean workspace
+            deleteDir()
         }
         success {
             echo "Property-service pipeline completed successfully! 🎉"
