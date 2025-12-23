@@ -1,5 +1,6 @@
 package ma.fstt.propertyservice.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -19,5 +20,6 @@ public class AmenityCategory {
     private String title;
 
     @OneToMany(mappedBy = "category")
+    @JsonIgnore
     private Set<Amenity> amenities;
 }

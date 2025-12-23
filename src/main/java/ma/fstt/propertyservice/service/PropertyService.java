@@ -28,16 +28,16 @@ import java.util.*;
 public class PropertyService {
     @PersistenceContext
     private EntityManager entityManager;
-    
+
     private final ProperyFileService propertyFileService;
     private final PropertyRepository propertyRepository;
     private final AmenityRepository amenityRepository;
     private final PropertyImageRepository propertyImageRepository;
     private final UserProfileService userProfileService;
     private final PropertyTypeRepository propertyTypeRepository;
-    private final SuspensionRepository  suspensionRepository;
+    private final SuspensionRepository suspensionRepository;
     private final RestTemplate restTemplate = new RestTemplate();
-    
+
     @Value("${user.service.url:http://localhost:8082}")
     private String userServiceUrl;
 
@@ -47,14 +47,16 @@ public class PropertyService {
         }
         int imageCount = files.size();
         if (imageCount < 5) {
-            throw new IllegalArgumentException("Property must include at least 5 images. Currently provided: " + imageCount);
+            throw new IllegalArgumentException(
+                    "Property must include at least 5 images. Currently provided: " + imageCount);
         }
         if (imageCount > 10) {
-            throw new IllegalArgumentException("Property can include at most 10 images. Currently provided: " + imageCount);
+            throw new IllegalArgumentException(
+                    "Property can include at most 10 images. Currently provided: " + imageCount);
         }
         Property property = input.createProperty();
         property.setUserId(hostID);
-        
+
         String propertyId = "prop-" + String.format("%03d", propertyRepository.count() + 1);
         property.setId(propertyId);
 
@@ -66,13 +68,14 @@ public class PropertyService {
         property.setType(type);
         property.setStatus(PropertyStatusEnum.DRAFT);
         Property savedProperty = propertyRepository.save(property);
-        
+
         try {
             updateUserRoleToHost(hostID);
         } catch (Exception e) {
         }
-        
-        Set<PropertyImage> propertyImages = propertyFileService.storePropertyImages(files, savedProperty, input.getCoverImageName());
+
+        Set<PropertyImage> propertyImages = propertyFileService.storePropertyImages(files, savedProperty,
+                input.getCoverImageName());
         propertyImageRepository.saveAll(propertyImages);
         return savedProperty.getId();
     }
@@ -92,47 +95,48 @@ public class PropertyService {
     public void updateProperty(String id, UpdatePropertyRequest input, String hostID) {
         Property property = propertyRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new RuntimeException("Property not found with id: " + id));
-        
-        if(!property.getUserId().equals(hostID)){
+
+        if (!property.getUserId().equals(hostID)) {
             throw new UserNotPermitedException();
         }
-        
+
         if (input.getTitle() != null && !input.getTitle().trim().isEmpty()) {
             property.setTitle(input.getTitle().trim());
         }
-        
+
         if (input.getDescription() != null) {
             property.setDescription(input.getDescription().trim());
         }
-        
+
         if (input.getDailyPrice() != null) {
             property.setDailyPrice(input.getDailyPrice());
             property.setPrice(input.getDailyPrice()); // Also update price field
         }
-        
+
         if (input.getCapacity() != null) {
             property.setCapacity(input.getCapacity());
         }
-        
+
         if (input.getNumberOfBedrooms() != null) {
             property.setNumberOfBedrooms(input.getNumberOfBedrooms());
         }
-        
+
         if (input.getNumberOfBeds() != null) {
             property.setNumberOfBeds(input.getNumberOfBeds());
         }
-        
+
         if (input.getNumberOfBathrooms() != null) {
             property.setNumberOfBathrooms(input.getNumberOfBathrooms());
         }
-        
+
         if (input.getTypeId() != null) {
             PropertyType type = propertyTypeRepository.findById(input.getTypeId())
                     .orElseThrow(() -> new RuntimeException("Property type not found"));
             property.setType(type);
         }
-        
-        if (input.getAddress() != null || input.getCity() != null || input.getCountry() != null || input.getZipCode() != null) {
+
+        if (input.getAddress() != null || input.getCity() != null || input.getCountry() != null
+                || input.getZipCode() != null) {
             Address address = property.getAddress();
             if (address == null) {
                 address = new Address();
@@ -154,23 +158,22 @@ public class PropertyService {
                 }
             }
         }
-        
+
         if (input.getAmenities() != null) {
             property.setAmenities(amenitiesCheck(input.getAmenities()));
         }
-        
+
         Property savedProperty = propertyRepository.saveAndFlush(property);
-        
+
         entityManager.detach(savedProperty);
-        
+
         Property verifiedProperty = propertyRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new RuntimeException("Property not found after update"));
     }
 
-    public void deleteProperty(String id, String hostID)
-    {
+    public void deleteProperty(String id, String hostID) {
         Property property = getPropertyById(id);
-        if(!property.getUserId().equals(hostID)){
+        if (!property.getUserId().equals(hostID)) {
             throw new UserNotPermitedException();
         }
         property.setStatus(PropertyStatusEnum.HIDDEN);
@@ -178,13 +181,14 @@ public class PropertyService {
     }
 
     public void deletePropertyImage(Long id, String hostID) {
-        PropertyImage propertyImage = propertyImageRepository.findById(id).orElseThrow(() -> new PropertyImageNotFoundException());
+        PropertyImage propertyImage = propertyImageRepository.findById(id)
+                .orElseThrow(() -> new PropertyImageNotFoundException());
         Property property = propertyImage.getProperty();
-        if(!property.getUserId().equals(hostID)){
+        if (!property.getUserId().equals(hostID)) {
             throw new UserNotPermitedException();
         }
         int currentImageCount = property.getPropertyImages().size();
-        if(currentImageCount <= 5){
+        if (currentImageCount <= 5) {
             throw new PropertyImagesDoNotExceedRequiredMinimumException();
         }
         property.getPropertyImages().remove(propertyImage);
@@ -200,8 +204,7 @@ public class PropertyService {
         propertyImageRepository.delete(propertyImage);
     }
 
-    public boolean hasAmenity(Long amenityId)
-    {
+    public boolean hasAmenity(Long amenityId) {
         return propertyRepository.countByAmenityId(amenityId) > 0;
     }
 
@@ -210,17 +213,17 @@ public class PropertyService {
         inputAmenities.forEach(amenity -> {
             if (amenityRepository.existsById(amenity.getId())) {
                 amenities.add(amenity);
-            }else {
+            } else {
                 throw new AmenityNotFoundException();
             }
         });
         return amenities;
     }
 
-    public void approveProperty(String id, ApprovePropertyRequest input)
-    {
+    public void approveProperty(String id, ApprovePropertyRequest input) {
         Property property = getPropertyById(id);
-        PropertyStatusEnum newStatus = input.getIsApproved() ? PropertyStatusEnum.APPROVED : PropertyStatusEnum.DISAPPROVED;
+        PropertyStatusEnum newStatus = input.getIsApproved() ? PropertyStatusEnum.APPROVED
+                : PropertyStatusEnum.DISAPPROVED;
         updatePropertyStatus(property, newStatus);
     }
 
@@ -231,7 +234,7 @@ public class PropertyService {
 
     public void hideProperty(String id, String hostId, HidePropertyRequest input) {
         Property property = getPropertyById(id);
-        if(!property.getUserId().equals(hostId)){
+        if (!property.getUserId().equals(hostId)) {
             throw new UserNotPermitedException();
         }
         PropertyStatusEnum newStatus = input.getIsHidden() ? PropertyStatusEnum.HIDDEN : PropertyStatusEnum.APPROVED;
@@ -239,44 +242,43 @@ public class PropertyService {
     }
 
     @Transactional(readOnly = true)
-    public Property getPropertyById(String id)
-    {
+    public Property getPropertyById(String id) {
         Property property = null;
-        
+
         try {
             property = propertyRepository.findByIdWithDetails(id).orElse(null);
         } catch (Exception e) {
         }
-        
+
         if (property == null) {
             property = propertyRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Property not found with id: " + id));
         }
-        
+
         if (property.getDepositAmount() == null) {
             property.setDepositAmount(0.0);
         }
-        
+
         try {
             Hibernate.initialize(property.getType());
         } catch (Exception e) {
         }
-        
+
         try {
             Hibernate.initialize(property.getAddress());
         } catch (Exception e) {
         }
-        
+
         try {
             Hibernate.initialize(property.getPropertyImages());
         } catch (Exception e) {
         }
-        
+
         try {
             Hibernate.initialize(property.getAmenities());
         } catch (Exception e) {
         }
-        
+
         return property;
     }
 
@@ -324,7 +326,7 @@ public class PropertyService {
 
     public ma.fstt.propertyservice.dto.responses.PropertyBookingInfoDTO getPropertyBookingInfo(String propertyId) {
         Property property = getPropertyById(propertyId);
-        
+
         Long ownerId = null;
         try {
             if (property.getUserId() != null && !property.getUserId().isEmpty()) {
@@ -332,16 +334,16 @@ public class PropertyService {
             }
         } catch (NumberFormatException e) {
         }
-        
-        boolean discountEnabled = property.getDiscountPlan() != null && 
-            (property.getDiscountPlan().getFiveDays() != null || 
-             property.getDiscountPlan().getFifteenDays() != null || 
-             property.getDiscountPlan().getOneMonth() != null);
-        
+
+        boolean discountEnabled = property.getDiscountPlan() != null &&
+                (property.getDiscountPlan().getFiveDays() != null ||
+                        property.getDiscountPlan().getFifteenDays() != null ||
+                        property.getDiscountPlan().getOneMonth() != null);
+
         boolean isNegotiable = discountEnabled;
-        
+
         Integer maxNegotiationPercent = discountEnabled ? 20 : null;
-        
+
         return ma.fstt.propertyservice.dto.responses.PropertyBookingInfoDTO.builder()
                 .id(property.getId())
                 .ownerId(ownerId)
@@ -354,34 +356,34 @@ public class PropertyService {
     }
 
     public void addNewPropertyImages(AddNewPropertyImagesRequest input, String userId, List<MultipartFile> newImages) {
-        Property property =  propertyRepository.findById(input.getPropertyId())
+        Property property = propertyRepository.findById(input.getPropertyId())
                 .orElseThrow(PropertyImageNotFoundException::new);
-        if(!property.getUserId().equals(userId)){
+        if (!property.getUserId().equals(userId)) {
             throw new UserNotPermitedException();
         }
-        
+
         int currentImageCount = property.getPropertyImages().size();
         int newImageCount = newImages != null ? newImages.size() : 0;
         int totalImageCount = currentImageCount + newImageCount;
-        
+
         if (totalImageCount > 10) {
             throw new IllegalArgumentException(
-                String.format("Property can have at most 10 images. Currently has %d images, trying to add %d more. Maximum allowed: %d", 
-                    currentImageCount, newImageCount, 10 - currentImageCount)
-            );
+                    String.format(
+                            "Property can have at most 10 images. Currently has %d images, trying to add %d more. Maximum allowed: %d",
+                            currentImageCount, newImageCount, 10 - currentImageCount));
         }
-        
+
         boolean hasExistingCover = property.getPropertyImages()
                 .stream()
                 .anyMatch(PropertyImage::getCover);
         String coverParam = (hasExistingCover && input.getCoverImageName() == null)
                 ? "__NO_COVER__"
                 : input.getCoverImageName();
-        Set<PropertyImage> newImagesSet =
-                propertyFileService.storePropertyImages(newImages, property, coverParam);
+        Set<PropertyImage> newImagesSet = propertyFileService.storePropertyImages(newImages, property, coverParam);
 
         propertyImageRepository.saveAll(newImagesSet);
     }
+
     public void updatePropertyImage(Long id, String hostId) {
         PropertyImage newCover = propertyImageRepository.findById(id)
                 .orElseThrow(PropertyImageNotFoundException::new);
@@ -406,7 +408,7 @@ public class PropertyService {
 
     public void suspendProperty(String id, SuspensionPropertyRequest input) {
         Property property = getPropertyById(id);
-        if(!property.getStatus().equals(PropertyStatusEnum.APPROVED)){
+        if (!property.getStatus().equals(PropertyStatusEnum.APPROVED)) {
             throw new PropertyCannotBeSuspendedException();
         }
         Suspension suspension = new Suspension();
@@ -424,7 +426,8 @@ public class PropertyService {
         if (!property.getStatus().equals(PropertyStatusEnum.SUSPENDED)) {
             throw new PropertyIsNotSuspendedException();
         }
-        Suspension suspension = suspensionRepository.findByPropertyAndActiveTrue(property).orElseThrow(() -> new RuntimeException("Active suspension not found"));
+        Suspension suspension = suspensionRepository.findByPropertyAndActiveTrue(property)
+                .orElseThrow(() -> new RuntimeException("Active suspension not found"));
 
         suspension.setActive(false);
         suspensionRepository.save(suspension);
@@ -435,10 +438,11 @@ public class PropertyService {
 
     public void submitForApproval(String id, String hostId) {
         Property property = getPropertyById(id);
-        if(!property.getUserId().equals(hostId)){
+        if (!property.getUserId().equals(hostId)) {
             throw new UserNotPermitedException();
         }
-        if (!property.getStatus().equals(PropertyStatusEnum.DRAFT) && !property.getStatus().equals(PropertyStatusEnum.DISAPPROVED)) {
+        if (!property.getStatus().equals(PropertyStatusEnum.DRAFT)
+                && !property.getStatus().equals(PropertyStatusEnum.DISAPPROVED)) {
             throw new RuntimeException("Property can only be submitted for approval from DRAFT or DISAPPROVED status");
         }
         updatePropertyStatus(property, PropertyStatusEnum.PENDING_APPROVAL);
@@ -446,7 +450,7 @@ public class PropertyService {
 
     public void cancelApprovalRequest(String id, String hostId) {
         Property property = getPropertyById(id);
-        if(!property.getUserId().equals(hostId)){
+        if (!property.getUserId().equals(hostId)) {
             throw new UserNotPermitedException();
         }
         if (!property.getStatus().equals(PropertyStatusEnum.PENDING_APPROVAL)) {
@@ -454,6 +458,5 @@ public class PropertyService {
         }
         updatePropertyStatus(property, PropertyStatusEnum.DRAFT);
     }
-
 
 }
