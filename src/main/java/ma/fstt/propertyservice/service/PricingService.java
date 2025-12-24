@@ -45,6 +45,9 @@ public class PricingService {
     @Value("${user.service.url:http://localhost:8082}")
     private String userServiceUrl;
 
+    @Value("${booking.service.url:http://localhost:8083}")
+    private String bookingServiceUrl;
+
     /**
      * Predict optimal price for a property based on booking dates.
      * Automatically extracts all features from database.
@@ -66,10 +69,10 @@ public class PricingService {
             if (currentPrice != null && prediction.getPredictedPriceMad() != null) {
                 double difference = prediction.getPredictedPriceMad() - currentPrice;
                 double differencePercent = (difference / currentPrice) * 100.0;
-                
+
                 prediction.setCurrentPriceMad(currentPrice);
                 prediction.setPriceDifferencePercent(differencePercent);
-                
+
                 // Generate recommendation
                 if (differencePercent > 5.0) {
                     prediction.setRecommendation("INCREASE");
@@ -99,7 +102,8 @@ public class PricingService {
         Map<String, Object> features = new HashMap<>();
 
         // Direct features from property
-        features.put("bedroom_count", property.getNumberOfBedrooms() != null ? property.getNumberOfBedrooms().doubleValue() : 1.0);
+        features.put("bedroom_count",
+                property.getNumberOfBedrooms() != null ? property.getNumberOfBedrooms().doubleValue() : 1.0);
         features.put("bed_count", property.getNumberOfBeds() != null ? property.getNumberOfBeds().doubleValue() : 1.0);
 
         // City normalization (from address or default)
@@ -153,9 +157,9 @@ public class PricingService {
         }
         features.put("rating_value", ownerRating != null ? ownerRating : 4.0); // Default 4.0
 
-        // Rating count (proxy: count bookings - need to call booking-service or use property booking info)
-        // For now, use a default value. In production, you'd call booking-service
-        int ratingCount = 25; // Default - TODO: Get from booking-service
+        // Rating count (proxy: count bookings - need to call booking-service or use
+        // property booking info)
+        int ratingCount = getBookingCount(property.getId());
         features.put("rating_count", ratingCount);
 
         // Review density (proxy: calculate from rating_count and property age)
@@ -213,9 +217,9 @@ public class PricingService {
         if (city == null) {
             return "casablanca";
         }
-        
+
         String normalized = city.toLowerCase().trim();
-        
+
         // Map common variations to model cities
         Map<String, String> cityMapping = Map.of(
                 "casablanca", "casablanca",
@@ -226,9 +230,8 @@ public class PricingService {
                 "fes", "fes",
                 "fez", "fes",
                 "tangier", "tangier",
-                "tanger", "tangier"
-        );
-        
+                "tanger", "tangier");
+
         return cityMapping.getOrDefault(normalized, "casablanca"); // Default fallback
     }
 
@@ -237,7 +240,7 @@ public class PricingService {
      */
     private String getSeasonCategory(LocalDate checkInDate) {
         Month month = checkInDate.getMonth();
-        
+
         if (month == Month.MARCH) {
             return "march";
         } else if (month == Month.APRIL) {
@@ -323,7 +326,8 @@ public class PricingService {
     // Helper methods for response parsing
     private Double getDouble(Map<String, Object> map, String key) {
         Object value = map.get(key);
-        if (value == null) return null;
+        if (value == null)
+            return null;
         if (value instanceof Number) {
             return ((Number) value).doubleValue();
         }
@@ -340,13 +344,31 @@ public class PricingService {
     }
 
     /**
+     * Get booking count from booking-service.
+     */
+    private int getBookingCount(String propertyId) {
+        try {
+            String url = bookingServiceUrl + "/api/bookings/confirmed/property/" + propertyId;
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> bookings = restTemplate.getForObject(url, List.class);
+            if (bookings != null) {
+                return bookings.size();
+            }
+        } catch (Exception e) {
+            log.warn("Could not fetch booking count for property {}: {}", propertyId, e.getMessage());
+        }
+        return 0; // Default fallback
+    }
+
+    /**
      * Get user rating from user-service.
      */
     private Double getUserRatingFromUserService(String userId) {
         try {
             String url = userServiceUrl + "/api/v1/users/" + userId;
+            @SuppressWarnings("unchecked")
             Map<String, Object> userResponse = restTemplate.getForObject(url, Map.class);
-            
+
             if (userResponse != null && userResponse.containsKey("rating")) {
                 Object rating = userResponse.get("rating");
                 if (rating instanceof Number) {
@@ -359,4 +381,3 @@ public class PricingService {
         return null;
     }
 }
-
