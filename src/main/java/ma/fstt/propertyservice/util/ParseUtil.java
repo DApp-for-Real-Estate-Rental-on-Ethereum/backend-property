@@ -20,8 +20,12 @@ public class ParseUtil {
         String[] rolesArray = cleanedString.split(",\\s*");
         
         return (Set<T>) Stream.of(rolesArray)
-                .map(String::trim)
-                .filter(role -> !role.isEmpty())
-                .collect(Collectors.toSet());
+            .map(String::trim)
+            // Strip surrounding quotes if present (e.g., "ROLE_HOST")
+            .map(role -> role.replaceAll("^\"|\"$", ""))
+            .filter(role -> !role.isEmpty())
+            // Normalize Spring Security style roles like ROLE_HOST to HOST
+            .map(role -> role.replaceFirst("^ROLE_", "").toUpperCase())
+            .collect(Collectors.toSet());
     }
 }

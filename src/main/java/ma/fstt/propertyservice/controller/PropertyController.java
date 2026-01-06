@@ -8,6 +8,8 @@ import ma.fstt.propertyservice.service.PricingService;
 import ma.fstt.propertyservice.service.PropertyService;
 import ma.fstt.propertyservice.service.UserProfileService;
 import ma.fstt.propertyservice.util.ParseUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +27,7 @@ import java.util.Set;
 @RequestMapping("/api/v1/properties")
 @RequiredArgsConstructor
 public class PropertyController {
+    private static final Logger log = LoggerFactory.getLogger(PropertyController.class);
     private final PropertyService propertyService;
     private final UserProfileService userProfileService;
     private final PricingService pricingService;
@@ -43,7 +46,9 @@ public class PropertyController {
             @RequestPart("images") List<MultipartFile> images,
             @RequestHeader("X-User-Id") String userId,
             @RequestHeader("X-User-Roles") String userRolesString) {
+        log.info("createProperty request userId={} rolesRaw={}", userId, userRolesString);
         Set<String> roles = ParseUtil.StringToSet(userRolesString);
+        log.info("createProperty parsedRoles={}", roles);
         if (!isHost(roles) && !isAdmin(roles)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("error", "HOST role is required to create a property."));
