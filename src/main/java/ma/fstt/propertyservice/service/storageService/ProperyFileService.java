@@ -63,9 +63,8 @@ public class ProperyFileService {
                 }
 
                 String fileName = property.getId() + "_" + i + "." + extension;
-                String fullPath = folder + fileName;
 
-                String url = storageService.storeFile(file, fullPath);
+                String url = storageService.storeFile(file, fileName);
                 uploadedPaths.add(url);
 
                 PropertyImage propertyImage = new PropertyImage();
